@@ -2,64 +2,81 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="300"> 
-    <title>Dashboard de Recolha Profissional</title>
+    <meta http-equiv="refresh" content="600"> 
+    <title>Dashboard de Recolha - Ranking</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --warning: #f59e0b; --text: #f3f4f6; }
-        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; }
+        :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --text: #f3f4f6; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 2px solid var(--accent); margin-bottom: 20px; }
+        body { 
+            background-color: var(--bg); color: var(--text); 
+            font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; 
+            overflow: hidden; 
+        }
         
-        .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; }
-        .stat-box { background: var(--card); padding: 20px; border-radius: 15px; text-align: center; border: 1px solid #1f2937; }
-        .stat-box h2 { margin: 0; font-size: 1.2rem; color: #9ca3af; text-transform: uppercase; }
-        .stat-value { font-size: 4rem; font-weight: 800; margin: 5px 0; color: var(--accent); }
+        .header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent);
+            position: sticky; top: 0; z-index: 100;
+        }
+        
+        .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 20px 30px; }
+        .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #1f2937; }
+        .stat-value { font-size: 3.8rem; font-weight: 800; color: var(--accent); }
 
-        .table-container { background: var(--card); border-radius: 15px; padding: 10px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 1.2rem; }
-        th { padding: 15px; text-align: left; background: #1f2937; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; }
-        td { padding: 15px; border-bottom: 1px solid #1f2937; }
+        #scroll-container {
+            height: 62vh; 
+            overflow-y: hidden;
+            position: relative;
+            padding: 0 30px;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 1.5rem; }
+        th { padding: 18px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1rem; }
+        td { padding: 20px; border-bottom: 1px solid #1f2937; background: var(--card); }
         
-        .bar-container { background: #374151; border-radius: 10px; height: 12px; width: 100px; display: inline-block; margin-right: 10px; }
+        /* Cores de Medalhas para o Top 3 */
+        tr:nth-child(1) td:first-child { border-left: 8px solid #ffd700; } /* Ouro */
+        tr:nth-child(2) td:first-child { border-left: 8px solid #c0c0c0; } /* Prata */
+        tr:nth-child(3) td:first-child { border-left: 8px solid #cd7f32; } /* Bronze */
+
+        .bar-container { background: #374151; border-radius: 10px; height: 18px; width: 140px; display: inline-block; margin-right: 10px; vertical-align: middle; }
         .bar-fill { height: 100%; border-radius: 10px; background: var(--success); }
-        
-        .negrito { font-weight: bold; }
-        .success-text { color: var(--success); }
+        .success-text { color: var(--success); font-weight: bold; }
+        .badge-meta { background: #064e3b; color: #6ee7b7; padding: 5px 12px; border-radius: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1 style="margin:0">RECOLHA ANALISTAS</h1>
-        <div id="relogio"></div>
+        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA</h1>
+        <div id="relogio" style="font-size: 1.3rem; color: #9ca3af;"></div>
     </div>
 
     <div class="summary-container">
         <div class="stat-box">
-            <h2>Total de Postos (Geral)</h2>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem;">TOTAL DE POSTOS</h2>
             <div id="total-geral-postos" class="stat-value">--</div>
         </div>
         <div class="stat-box">
-            <h2>Postos com Meta > 90%</h2>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem;">POSTOS > 90%</h2>
             <div id="total-meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
     </div>
 
-    <div class="table-container">
-        <table>
+    <div id="scroll-container">
+        <table id="tabela-analistas">
             <thead>
                 <tr>
                     <th>Analista</th>
-                    <th>Qtd Postos</th>
-                    <th>Vlr Recolhido</th>
-                    <th>Vlr Pendente</th>
+                    <th>Postos</th>
+                    <th>Meta Batida</th>
+                    <th>Total Recolhido</th>
                     <th>Eficiência</th>
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5">Processando dados da planilha...</td></tr>
-            </tbody>
+                </tbody>
         </table>
     </div>
 
@@ -74,54 +91,78 @@
                 const workbook = XLSX.read(data, {type: 'array'});
                 const lista = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-                let analistas = {};
+                let dadosAgrupados = {};
                 let totalPostosGeral = lista.length;
                 let totalMeta90Geral = 0;
 
                 lista.forEach(row => {
                     const nome = row['USUARIO RESPONSAVEL'] || 'SEM ANALISTA';
                     const vlrRecolhido = parseFloat(row['VALOR RECOLHIDO'] || 0);
-                    const vlrPendente = parseFloat(row['VALOR PENDENTE'] || 0);
                     const vlrTotal = parseFloat(row['VALOR A RECOLHER'] || 0);
                     
-                    // Cálculo de eficiência por posto para a meta de 90%
                     let efPosto = vlrTotal > 0 ? (vlrRecolhido / vlrTotal) * 100 : 0;
-                    if (efPosto >= 90) totalMeta90Geral++;
+                    let bateuMeta = efPosto >= 90 ? 1 : 0;
+                    if (bateuMeta) totalMeta90Geral++;
 
-                    if (!analistas[nome]) {
-                        analistas[nome] = { postos: 0, recolhido: 0, pendente: 0, total: 0 };
+                    if (!dadosAgrupados[nome]) {
+                        dadosAgrupados[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
                     }
 
-                    analistas[nome].postos += 1;
-                    analistas[nome].recolhido += vlrRecolhido;
-                    analistas[nome].pendente += vlrPendente;
-                    analistas[nome].total += vlrTotal;
+                    dadosAgrupados[nome].postos += 1;
+                    dadosAgrupados[nome].meta90 += bateuMeta;
+                    dadosAgrupados[nome].recolhido += vlrRecolhido;
+                    dadosAgrupados[nome].total += vlrTotal;
                 });
 
+                // Converter objeto para Array e calcular Eficiência Final
+                let ranking = Object.values(dadosAgrupados).map(a => {
+                    a.eficienciaFinal = a.total > 0 ? (a.recolhido / a.total) * 100 : 0;
+                    return a;
+                });
+
+                // ORDENAR POR EFICIÊNCIA (Do maior para o menor)
+                ranking.sort((a, b) => b.eficienciaFinal - a.eficienciaFinal);
+
                 let html = "";
-                for (let a in analistas) {
-                    let ef = analistas[a].total > 0 ? (analistas[a].recolhido / analistas[a].total) * 100 : 0;
-                    
+                ranking.forEach(a => {
                     html += `<tr>
-                        <td class="negrito">${a}</td>
-                        <td>${analistas[a].postos}</td>
-                        <td class="success-text">R$ ${analistas[a].recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                        <td style="color:#f87171">R$ ${analistas[a].pendente.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        <td style="font-weight:bold">${a.nome}</td>
+                        <td>${a.postos}</td>
+                        <td><span class="badge-meta">${a.meta90}</span></td>
+                        <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                         <td>
-                            <div class="bar-container"><div class="bar-fill" style="width: ${ef}%"></div></div>
-                            ${ef.toFixed(1)}%
+                            <div class="bar-container"><div class="bar-fill" style="width: ${a.eficienciaFinal}%"></div></div>
+                            ${a.eficienciaFinal.toFixed(1)}%
                         </td>
                     </tr>`;
-                }
+                });
 
                 document.getElementById('corpo-tabela').innerHTML = html;
                 document.getElementById('total-geral-postos').innerText = totalPostosGeral;
                 document.getElementById('total-meta-90').innerText = totalMeta90Geral;
-                document.getElementById('relogio').innerText = new Date().toLocaleString();
+                document.getElementById('relogio').innerText = new Date().toLocaleString('pt-BR');
+
+                // Só inicia o scroll se a tabela for maior que o container
+                setTimeout(iniciarScroll, 2000);
 
             } catch (e) {
-                document.getElementById('corpo-tabela').innerHTML = "Erro ao ler as colunas. Verifique os nomes no Excel.";
+                console.error(e);
             }
+        }
+
+        function iniciarScroll() {
+            const container = document.getElementById('scroll-container');
+            if (container.scrollHeight <= container.offsetHeight) return;
+
+            let scrollSpeed = 0.8; 
+            function step() {
+                container.scrollTop += scrollSpeed;
+                if (container.scrollTop >= (container.scrollHeight - container.offsetHeight)) {
+                    setTimeout(() => { container.scrollTop = 0; }, 4000); 
+                }
+                window.requestAnimationFrame(step);
+            }
+            window.requestAnimationFrame(step);
         }
 
         processarDados();
