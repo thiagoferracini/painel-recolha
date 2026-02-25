@@ -2,47 +2,21 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="600"> 
-    <title>Ranking de Recolha - Oficial</title>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <meta http-equiv="refresh" content="300"> 
+    <title>Ranking de Recolha - Google Sheets</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --text: #f3f4f6; }
-        
-        body { 
-            background-color: var(--bg); color: var(--text); 
-            font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; 
-            overflow: hidden; 
-        }
-        
-        .header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent);
-            height: 80px; box-sizing: border-box;
-        }
-        
-        .summary-container { 
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; 
-            padding: 20px 30px; height: 160px; box-sizing: border-box;
-        }
-
+        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent); height: 80px; box-sizing: border-box; }
+        .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 20px 30px; height: 160px; box-sizing: border-box; }
         .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #1f2937; }
         .stat-value { font-size: 3.8rem; font-weight: 800; color: var(--accent); line-height: 1; }
-
-        /* Container do Scroll - Essencial estar com altura fixa */
-        #scroll-container {
-            height: calc(100vh - 240px); 
-            overflow-y: hidden;
-            position: relative;
-            padding: 0 30px 100px 30px; /* Padding no fundo para o scroll passar do último item */
-        }
-
+        #scroll-container { height: calc(100vh - 240px); overflow-y: hidden; padding: 0 30px 100px 30px; position: relative; }
         table { width: 100%; border-collapse: collapse; font-size: 1.6rem; }
         th { padding: 20px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1.1rem; }
         td { padding: 22px 20px; border-bottom: 1px solid #1f2937; background: var(--card); }
-        
-        /* Estilo para o TOP 1 */
         tr:first-child td { background: #1e293b; border-left: 10px solid #ffd700; }
-
         .bar-container { background: #374151; border-radius: 10px; height: 20px; width: 150px; display: inline-block; margin-right: 15px; vertical-align: middle; }
         .bar-fill { height: 100%; border-radius: 10px; background: var(--success); }
         .success-text { color: var(--success); font-weight: bold; }
@@ -52,7 +26,7 @@
 <body>
 
     <div class="header">
-        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA POR ANALISTA</h1>
+        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA EM TEMPO REAL</h1>
         <div id="relogio" style="font-size: 1.3rem; color: #9ca3af;"></div>
     </div>
 
@@ -68,7 +42,7 @@
     </div>
 
     <div id="scroll-container">
-        <table id="tabela-analistas">
+        <table>
             <thead>
                 <tr>
                     <th>Analista</th>
@@ -79,108 +53,93 @@
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5" style="text-align:center">A carregar dados...</td></tr>
+                <tr><td colspan="5" style="text-align:center">Conectando ao Google Sheets...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        const arquivoExcel = 'dados.xlsx';
+        // COLE O SEU LINK CSV DO GOOGLE SHEETS ABAIXO:
+        const urlGoogleSheets = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqMA7au78v103iJZ-XxYPtClZYPYY9L-LWFND99qpLh-sbz1Eg-8Dbnky6uGAS4GO47fDEVs4qvaLy/pub?gid=1227728310&single=true&output=csv';
 
-        async function carregarDados() {
-            try {
-                const response = await fetch(arquivoExcel + '?t=' + new Date().getTime());
-                const arrayBuffer = await response.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const lista = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        function carregarDados() {
+            Papa.parse(urlGoogleSheets, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processarDados(results.data);
+                },
+                error: function(err) {
+                    document.getElementById('corpo-tabela').innerHTML = "Erro ao conectar com a planilha pública.";
+                }
+            });
+        }
 
-                let analistasObj = {};
-                let totalPostosGeral = lista.length;
-                let totalMeta90Geral = 0;
+        function processarDados(lista) {
+            let analistasObj = {};
+            let totalPostosGeral = lista.length;
+            let totalMeta90Geral = 0;
 
-                lista.forEach(row => {
-                    const nome = row['USUARIO RESPONSAVEL'] || 'SEM ANALISTA';
-                    const vlrRec = parseFloat(row['VALOR RECOLHIDO'] || 0);
-                    const vlrTot = parseFloat(row['VALOR A RECOLHER'] || 0);
-                    
-                    let efIndividual = vlrTot > 0 ? (vlrRec / vlrTot) * 100 : 0;
-                    let bateuMeta = efIndividual >= 90 ? 1 : 0;
-                    if (bateuMeta) totalMeta90Geral++;
+            lista.forEach(row => {
+                // Remove espaços e garante que os nomes das colunas batam exatamente com o CSV
+                const nome = (row['USUARIO RESPONSAVEL'] || 'SEM ANALISTA').trim();
+                const vlrRec = parseFloat((row['VALOR RECOLHIDO'] || '0').replace(/\./g, '').replace(',', '.'));
+                const vlrTot = parseFloat((row['VALOR A RECOLHER'] || '0').replace(/\./g, '').replace(',', '.'));
+                
+                let efIndividual = vlrTot > 0 ? (vlrRec / vlrTot) * 100 : 0;
+                let bateuMeta = efIndividual >= 90 ? 1 : 0;
+                if (bateuMeta) totalMeta90Geral++;
 
-                    if (!analistasObj[nome]) {
-                        analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
-                    }
+                if (!analistasObj[nome]) {
+                    analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
+                }
 
-                    analistasObj[nome].postos += 1;
-                    analistasObj[nome].meta90 += bateuMeta;
-                    analistasObj[nome].recolhido += vlrRec;
-                    analistasObj[nome].total += vlrTot;
-                });
+                analistasObj[nome].postos += 1;
+                analistasObj[nome].meta90 += bateuMeta;
+                analistasObj[nome].recolhido += vlrRec;
+                analistasObj[nome].total += vlrTot;
+            });
 
-                // Converter para Array, calcular eficiência final e Ordenar
-                let ranking = Object.values(analistasObj).map(a => {
-                    a.eficiencia = a.total > 0 ? (a.recolhido / a.total) * 100 : 0;
-                    return a;
-                }).sort((a, b) => b.eficiencia - a.eficiencia);
+            let ranking = Object.values(analistasObj).map(a => {
+                a.eficiencia = a.total > 0 ? (a.recolhido / a.total) * 100 : 0;
+                return a;
+            }).sort((a, b) => b.eficiencia - a.eficiencia);
 
-                let html = "";
-                ranking.forEach(a => {
-                    html += `<tr>
-                        <td><b>${a.nome}</b></td>
-                        <td>${a.postos}</td>
-                        <td><span class="badge-meta">${a.meta90} Postos</span></td>
-                        <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                        <td>
-                            <div class="bar-container"><div class="bar-fill" style="width: ${a.eficiencia}%"></div></div>
-                            <b>${a.eficiencia.toFixed(1)}%</b>
-                        </td>
-                    </tr>`;
-                });
+            let html = "";
+            ranking.forEach(a => {
+                html += `<tr>
+                    <td><b>${a.nome}</b></td>
+                    <td>${a.postos}</td>
+                    <td><span class="badge-meta">${a.meta90} Postos</span></td>
+                    <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td>
+                        <div class="bar-container"><div class="bar-fill" style="width: ${a.eficiencia}%"></div></div>
+                        <b>${a.eficiencia.toFixed(1)}%</b>
+                    </td>
+                </tr>`;
+            });
 
-                document.getElementById('corpo-tabela').innerHTML = html;
-                document.getElementById('total-geral-postos').innerText = totalPostosGeral;
-                document.getElementById('total-meta-90').innerText = totalMeta90Geral;
-                document.getElementById('relogio').innerText = new Date().toLocaleString('pt-BR');
+            document.getElementById('corpo-tabela').innerHTML = html;
+            document.getElementById('total-geral-postos').innerText = totalPostosGeral;
+            document.getElementById('total-meta-90').innerText = totalMeta90Geral;
+            document.getElementById('relogio').innerText = new Date().toLocaleString('pt-BR');
 
-                // Inicia o sistema de scroll após carregar os dados
-                setTimeout(iniciarScrollInfinito, 2000);
-
-            } catch (e) {
-                console.error(e);
-                document.getElementById('corpo-tabela').innerHTML = "<tr><td colspan='5'>Erro ao carregar 'dados.xlsx'. Verifique o arquivo.</td></tr>";
-            }
+            iniciarScrollInfinito();
         }
 
         function iniciarScrollInfinito() {
             const container = document.getElementById('scroll-container');
-            
-            // Só faz scroll se a tabela for maior que o espaço disponível
             if (container.scrollHeight <= container.offsetHeight) return;
-
             let scrollPos = 0;
-            let speed = 1; // Velocidade do scroll (1 pixel por frame)
-
+            let speed = 0.8; 
             function loop() {
                 scrollPos += speed;
                 container.scrollTop = scrollPos;
-
-                // Se chegou ao fim (com uma pequena margem)
                 if (scrollPos >= (container.scrollHeight - container.offsetHeight)) {
-                    // Espera 5 segundos no fim e volta ao topo
-                    setTimeout(() => {
-                        scrollPos = 0;
-                        container.scrollTop = 0;
-                        // Reinicia o loop após voltar ao topo
-                        setTimeout(() => {
-                            requestAnimationFrame(loop);
-                        }, 2000);
-                    }, 5000);
-                } else {
-                    requestAnimationFrame(loop);
-                }
+                    setTimeout(() => { scrollPos = 0; container.scrollTop = 0; setTimeout(() => { requestAnimationFrame(loop); }, 2000); }, 5000);
+                } else { requestAnimationFrame(loop); }
             }
-
             requestAnimationFrame(loop);
         }
 
