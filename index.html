@@ -3,62 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="600"> 
-    <title>Dashboard de Recolha - Ranking Oficial</title>
+    <title>Ranking de Recolha - Oficial</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
         :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --text: #f3f4f6; }
-        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow: hidden; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent); }
-        .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 20px 30px; }
+        body { 
+            background-color: var(--bg); color: var(--text); 
+            font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; 
+            overflow: hidden; 
+        }
+        
+        .header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent);
+            height: 80px; box-sizing: border-box;
+        }
+        
+        .summary-container { 
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; 
+            padding: 20px 30px; height: 160px; box-sizing: border-box;
+        }
+
         .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #1f2937; }
-        .stat-value { font-size: 3.5rem; font-weight: 800; color: var(--accent); }
+        .stat-value { font-size: 3.8rem; font-weight: 800; color: var(--accent); line-height: 1; }
 
-        #scroll-container { height: 60vh; overflow-y: hidden; padding: 0 30px; position: relative; }
+        /* Container do Scroll - Essencial estar com altura fixa */
+        #scroll-container {
+            height: calc(100vh - 240px); 
+            overflow-y: hidden;
+            position: relative;
+            padding: 0 30px 100px 30px; /* Padding no fundo para o scroll passar do último item */
+        }
 
-        table { width: 100%; border-collapse: collapse; font-size: 1.5rem; }
-        th { padding: 18px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; }
-        td { padding: 20px; border-bottom: 1px solid #1f2937; background: var(--card); }
+        table { width: 100%; border-collapse: collapse; font-size: 1.6rem; }
+        th { padding: 20px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1.1rem; }
+        td { padding: 22px 20px; border-bottom: 1px solid #1f2937; background: var(--card); }
         
-        /* Destaque para o vencedor */
+        /* Estilo para o TOP 1 */
         tr:first-child td { background: #1e293b; border-left: 10px solid #ffd700; }
 
-        .bar-container { background: #374151; border-radius: 10px; height: 18px; width: 120px; display: inline-block; margin-right: 10px; vertical-align: middle; }
+        .bar-container { background: #374151; border-radius: 10px; height: 20px; width: 150px; display: inline-block; margin-right: 15px; vertical-align: middle; }
         .bar-fill { height: 100%; border-radius: 10px; background: var(--success); }
+        .success-text { color: var(--success); font-weight: bold; }
         .badge-meta { background: #064e3b; color: #6ee7b7; padding: 6px 15px; border-radius: 8px; font-weight: bold; border: 1px solid #059669; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1 style="margin:0; font-size: 2rem;">RANKING DE EFICIÊNCIA - RECOLHA</h1>
-        <div id="relogio" style="font-size: 1.2rem; color: #9ca3af;"></div>
+        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA POR ANALISTA</h1>
+        <div id="relogio" style="font-size: 1.3rem; color: #9ca3af;"></div>
     </div>
 
     <div class="summary-container">
         <div class="stat-box">
-            <h2 style="margin:0; color:#9ca3af; font-size: 1rem;">TOTAL DE POSTOS (CNPJ)</h2>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Total de Postos</h2>
             <div id="total-geral-postos" class="stat-value">--</div>
         </div>
         <div class="stat-box">
-            <h2 style="margin:0; color:#9ca3af; font-size: 1rem;">POSTOS > 90% (GERAL)</h2>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Postos com Meta > 90%</h2>
             <div id="total-meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
     </div>
 
     <div id="scroll-container">
-        <table>
+        <table id="tabela-analistas">
             <thead>
                 <tr>
                     <th>Analista</th>
                     <th>Postos</th>
                     <th>Meta Batida (>90%)</th>
-                    <th>Vlr Recolhido</th>
+                    <th>Total Recolhido</th>
                     <th>Eficiência</th>
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5">Carregando e Ordenando Ranking...</td></tr>
+                <tr><td colspan="5" style="text-align:center">A carregar dados...</td></tr>
             </tbody>
         </table>
     </div>
@@ -66,9 +87,8 @@
     <script>
         const arquivoExcel = 'dados.xlsx';
 
-        async function processarDados() {
+        async function carregarDados() {
             try {
-                // O ?t= garante que a TV baixe a planilha nova e ignore o cache
                 const response = await fetch(arquivoExcel + '?t=' + new Date().getTime());
                 const arrayBuffer = await response.arrayBuffer();
                 const data = new Uint8Array(arrayBuffer);
@@ -80,47 +100,40 @@
                 let totalMeta90Geral = 0;
 
                 lista.forEach(row => {
-                    // AJUSTE OS NOMES ABAIXO SE ESTIVEREM DIFERENTES NO EXCEL
-                    const nome = row['USUARIO RESPONSAVEL'] || 'SEM NOME';
+                    const nome = row['USUARIO RESPONSAVEL'] || 'SEM ANALISTA';
                     const vlrRec = parseFloat(row['VALOR RECOLHIDO'] || 0);
                     const vlrTot = parseFloat(row['VALOR A RECOLHER'] || 0);
                     
-                    // Cálculo por posto para o contador do topo
                     let efIndividual = vlrTot > 0 ? (vlrRec / vlrTot) * 100 : 0;
-                    let metaAtingida = efIndividual >= 90 ? 1 : 0;
-                    if (metaAtingida) totalMeta90Geral++;
+                    let bateuMeta = efIndividual >= 90 ? 1 : 0;
+                    if (bateuMeta) totalMeta90Geral++;
 
                     if (!analistasObj[nome]) {
-                        analistasObj[nome] = { nome: nome, qttPostos: 0, qttMeta90: 0, somaRec: 0, somaTot: 0 };
+                        analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
                     }
 
-                    analistasObj[nome].qttPostos += 1;
-                    analistasObj[nome].qttMeta90 += metaAtingida;
-                    analistasObj[nome].somaRec += vlrRec;
-                    analistasObj[nome].somaTot += vlrTot;
+                    analistasObj[nome].postos += 1;
+                    analistasObj[nome].meta90 += bateuMeta;
+                    analistasObj[nome].recolhido += vlrRec;
+                    analistasObj[nome].total += vlrTot;
                 });
 
-                // Transforma em Array para ordenar
-                let ranking = Object.values(analistasObj);
-
-                // CÁLCULO DA EFICIÊNCIA E ORDENAÇÃO
-                ranking.forEach(a => {
-                    a.eficienciaFinal = a.somaTot > 0 ? (a.somaRec / a.somaTot) * 100 : 0;
-                });
-
-                // Ordena do maior para o menor (B - A)
-                ranking.sort((a, b) => b.eficienciaFinal - a.eficienciaFinal);
+                // Converter para Array, calcular eficiência final e Ordenar
+                let ranking = Object.values(analistasObj).map(a => {
+                    a.eficiencia = a.total > 0 ? (a.recolhido / a.total) * 100 : 0;
+                    return a;
+                }).sort((a, b) => b.eficiencia - a.eficiencia);
 
                 let html = "";
                 ranking.forEach(a => {
                     html += `<tr>
                         <td><b>${a.nome}</b></td>
-                        <td>${a.qttPostos}</td>
-                        <td><span class="badge-meta">${a.qttMeta90} Postos</span></td>
-                        <td style="color:var(--success)">R$ ${a.somaRec.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        <td>${a.postos}</td>
+                        <td><span class="badge-meta">${a.meta90} Postos</span></td>
+                        <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                         <td>
-                            <div class="bar-container"><div class="bar-fill" style="width: ${a.eficienciaFinal}%"></div></div>
-                            <b>${a.eficienciaFinal.toFixed(1)}%</b>
+                            <div class="bar-container"><div class="bar-fill" style="width: ${a.eficiencia}%"></div></div>
+                            <b>${a.eficiencia.toFixed(1)}%</b>
                         </td>
                     </tr>`;
                 });
@@ -130,28 +143,48 @@
                 document.getElementById('total-meta-90').innerText = totalMeta90Geral;
                 document.getElementById('relogio').innerText = new Date().toLocaleString('pt-BR');
 
-                iniciarScroll();
+                // Inicia o sistema de scroll após carregar os dados
+                setTimeout(iniciarScrollInfinito, 2000);
 
             } catch (e) {
-                document.getElementById('corpo-tabela').innerHTML = "ERRO: Verifique se o arquivo dados.xlsx foi enviado corretamente.";
+                console.error(e);
+                document.getElementById('corpo-tabela').innerHTML = "<tr><td colspan='5'>Erro ao carregar 'dados.xlsx'. Verifique o arquivo.</td></tr>";
             }
         }
 
-        function iniciarScroll() {
+        function iniciarScrollInfinito() {
             const container = document.getElementById('scroll-container');
+            
+            // Só faz scroll se a tabela for maior que o espaço disponível
             if (container.scrollHeight <= container.offsetHeight) return;
-            let speed = 0.8; 
-            function scroll() {
-                container.scrollTop += speed;
-                if (container.scrollTop >= (container.scrollHeight - container.offsetHeight)) {
-                    setTimeout(() => container.scrollTop = 0, 3000);
+
+            let scrollPos = 0;
+            let speed = 1; // Velocidade do scroll (1 pixel por frame)
+
+            function loop() {
+                scrollPos += speed;
+                container.scrollTop = scrollPos;
+
+                // Se chegou ao fim (com uma pequena margem)
+                if (scrollPos >= (container.scrollHeight - container.offsetHeight)) {
+                    // Espera 5 segundos no fim e volta ao topo
+                    setTimeout(() => {
+                        scrollPos = 0;
+                        container.scrollTop = 0;
+                        // Reinicia o loop após voltar ao topo
+                        setTimeout(() => {
+                            requestAnimationFrame(loop);
+                        }, 2000);
+                    }, 5000);
+                } else {
+                    requestAnimationFrame(loop);
                 }
-                requestAnimationFrame(scroll);
             }
-            scroll();
+
+            requestAnimationFrame(loop);
         }
 
-        processarDados();
+        carregarDados();
     </script>
 </body>
 </html>
