@@ -2,104 +2,166 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="300"> <title>Dashboard de Recolha</title>
+    <meta http-equiv="refresh" content="300"> 
+    <title>Dashboard de Recolha - Setor de Recolha</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; margin: 0; padding: 20px; }
-        .header-stats { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: #1e293b; padding: 20px; border-radius: 12px; border-left: 8px solid #3b82f6; min-width: 250px; text-align: center; }
-        .stat-card h2 { margin: 0; font-size: 1.4rem; color: #94a3b8; }
-        .stat-val { font-size: 3.5rem; font-weight: bold; margin-top: 10px; }
+        :root {
+            --bg: #0a0f1a;
+            --card: #161e2d;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --text: #f8fafc;
+        }
+
+        body { 
+            background-color: var(--bg); 
+            color: var(--text); 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            margin: 0; 
+            padding: 30px; 
+            overflow: hidden; /* Evita scroll desnecessário na TV */
+        }
+
+        .header { text-align: left; margin-bottom: 30px; border-left: 6px solid var(--accent); padding-left: 20px; }
+        .header h1 { margin: 0; font-size: 2.5rem; text-transform: uppercase; letter-spacing: 2px; }
+        .header p { margin: 5px 0 0; color: #94a3b8; font-size: 1.2rem; }
+
+        .summary-container { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 25px; 
+            margin-bottom: 40px; 
+        }
+
+        .stat-box { 
+            background: var(--card); 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-box h2 { margin: 0; font-size: 1.5rem; color: #94a3b8; font-weight: 400; }
+        .stat-value { font-size: 5rem; font-weight: 800; margin: 10px 0; }
+
+        table { 
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0 10px; 
+            font-size: 1.5rem; 
+        }
+
+        th { 
+            padding: 15px 25px; 
+            text-align: left; 
+            color: #94a3b8; 
+            font-weight: 500; 
+            text-transform: uppercase;
+            font-size: 1.1rem;
+        }
+
+        td { 
+            padding: 20px 25px; 
+            background: var(--card);
+        }
+
+        td:first-child { border-radius: 15px 0 0 15px; font-weight: bold; }
+        td:last-child { border-radius: 0 15px 15px 0; }
+
+        .perc-rec { color: var(--success); font-weight: bold; }
+        .perc-pend { color: var(--warning); font-weight: bold; }
+        .valor { font-family: monospace; }
         
-        table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; font-size: 1.6rem; }
-        th { background-color: #334155; color: #3b82f6; padding: 20px; text-align: left; }
-        td { padding: 20px; border-bottom: 1px solid #334155; }
-        tr:nth-child(even) { background-color: #1e293b; }
-        .verde { color: #4ade80; font-weight: bold; }
-        .laranja { color: #fb923c; font-weight: bold; }
+        #last-update { font-size: 0.9rem; color: #475569; position: fixed; bottom: 10px; right: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="header-stats">
-        <div class="stat-card">
-            <h2>Total de Postos (CNPJ)</h2>
-            <div id="total-postos" class="stat-val">--</div>
+    <div class="header">
+        <h1>Monitoramento de Recolha</h1>
+        <p id="data-atual"></p>
+    </div>
+
+    <div class="summary-container">
+        <div class="stat-box">
+            <h2>TOTAL DE POSTOS (CNPJ)</h2>
+            <div id="total-postos" class="stat-value">--</div>
         </div>
-        <div class="stat-card" style="border-left-color: #4ade80;">
-            <h2>Meta Batida (>90%)</h2>
-            <div id="meta-90" class="stat-val" style="color: #4ade80;">--</div>
+        <div class="stat-box" style="border-bottom: 8px solid var(--success);">
+            <h2>RECOLHA ACIMA DE 90%</h2>
+            <div id="meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
     </div>
 
-    <table id="tabela-dados">
+    <table>
         <thead>
             <tr>
-                <th>Analista</th>
+                <th>Analista Responsável</th>
                 <th>Valor a Recolher</th>
                 <th>% Recolhido</th>
                 <th>% Pendente</th>
             </tr>
         </thead>
         <tbody id="corpo-tabela">
-            <tr><td colspan="4" style="text-align:center;">Carregando dados do Excel...</td></tr>
-        </tbody>
+            </tbody>
     </table>
 
+    <div id="last-update">Atualizado em: <span id="hora-refresh"></span></div>
+
     <script>
-        // NOME DO SEU ARQUIVO EXCEL NO GITHUB
         const arquivoExcel = 'dados.xlsx'; 
 
-        async function lerExcel() {
+        async function atualizarPainel() {
             try {
-                // Busca o arquivo Excel do seu repositório
                 const response = await fetch(arquivoExcel + '?t=' + new Date().getTime());
                 const arrayBuffer = await response.arrayBuffer();
                 const data = new Uint8Array(arrayBuffer);
                 const workbook = XLSX.read(data, {type: 'array'});
-
-                // Pega a primeira aba da planilha
-                const nomeAba = workbook.SheetNames[0];
-                const aba = workbook.Sheets[nomeAba];
-                
-                // Converte para JSON (Lista de objetos)
+                const aba = workbook.Sheets[workbook.SheetNames[0]];
                 const lista = XLSX.utils.sheet_to_json(aba);
 
                 let htmlTabela = "";
                 let acima90 = 0;
 
                 lista.forEach(row => {
-                    // AJUSTE OS NOMES ABAIXO PARA BATER COM O CABEÇALHO DO SEU EXCEL
                     const analista = row['USUARIO RESPONSAVEL'] || '---';
                     const valor = row['VALOR A RECOLHER'] || '0';
-                    const recolhido = row['% RECOLHIDO'] || 0;
-                    const pendente = row['% PENDENTE'] || 0;
+                    const recRaw = row['% RECOLHIDO'] || 0;
+                    const penRaw = row['% PENDENTE'] || 0;
 
-                    // Lógica para contar quem está acima de 90%
-                    // Aceita formatos como "95%" ou 0.95
-                    let percNum = typeof recolhido === 'string' ? parseFloat(recolhido.replace('%','')) : recolhido * 100;
-                    if (percNum >= 90) acima90++;
+                    // Converte porcentagem para exibição
+                    let recDisplay = typeof recRaw === 'number' ? (recRaw * 100).toFixed(1) + '%' : recRaw;
+                    let penDisplay = typeof penRaw === 'number' ? (penRaw * 100).toFixed(1) + '%' : penRaw;
+                    
+                    // Lógica para destaque > 90%
+                    let n = typeof recRaw === 'number' ? recRaw * 100 : parseFloat(recRaw.toString().replace('%',''));
+                    if (n >= 90) acima90++;
 
                     htmlTabela += `<tr>
                         <td>${analista}</td>
-                        <td>${valor}</td>
-                        <td class="verde">${typeof recolhido === 'number' ? (recolhido * 100).toFixed(1) + '%' : recolhido}</td>
-                        <td class="laranja">${typeof pendente === 'number' ? (pendente * 100).toFixed(1) + '%' : pendente}</td>
+                        <td class="valor">R$ ${valor}</td>
+                        <td class="perc-rec">${recDisplay}</td>
+                        <td class="perc-pend">${penDisplay}</td>
                     </tr>`;
                 });
 
                 document.getElementById('corpo-tabela').innerHTML = htmlTabela;
                 document.getElementById('total-postos').innerText = lista.length;
                 document.getElementById('meta-90').innerText = acima90;
+                document.getElementById('hora-refresh').innerText = new Date().toLocaleTimeString();
+                document.getElementById('data-atual').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
             } catch (e) {
-                console.error("Erro ao ler Excel:", e);
-                document.getElementById('corpo-tabela').innerHTML = "Erro ao carregar o arquivo dados.xlsx";
+                console.error(e);
+                document.getElementById('corpo-tabela').innerHTML = "<tr><td colspan='4'>Erro ao ler 'dados.xlsx'. Verifique o arquivo no GitHub.</td></tr>";
             }
         }
 
-        // Executa ao abrir
-        lerExcel();
+        atualizarPainel();
     </script>
 </body>
 </html>
