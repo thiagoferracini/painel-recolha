@@ -2,23 +2,33 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="300"> 
+    <meta http-equiv="refresh" content="120"> 
     <title>Ranking de Recolha - Ailog PRO</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --text: #f3f4f6; }
         body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        
+        /* Cabeçalho */
         .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent); height: 80px; box-sizing: border-box; }
+        
+        /* Boxes de Resumo */
         .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 20px 30px; height: 160px; box-sizing: border-box; }
-        .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #1f2937; }
+        .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #1f2937; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
         .stat-value { font-size: 3.8rem; font-weight: 800; color: var(--accent); line-height: 1; }
+        
+        /* Tabela e Scroll */
         #scroll-container { height: calc(100vh - 240px); overflow-y: hidden; padding: 0 30px 100px 30px; position: relative; }
         table { width: 100%; border-collapse: collapse; font-size: 1.6rem; }
-        th { padding: 20px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1.1rem; }
+        th { padding: 20px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1.1rem; text-transform: uppercase; }
         td { padding: 22px 20px; border-bottom: 1px solid #1f2937; background: var(--card); }
-        tr:first-child td { background: #1e293b; border-left: 10px solid #ffd700; }
-        .bar-container { background: #374151; border-radius: 10px; height: 20px; width: 150px; display: inline-block; margin-right: 15px; vertical-align: middle; }
-        .bar-fill { height: 100%; border-radius: 10px; background: var(--success); }
+        
+        /* Destaque para o 1º Lugar */
+        tr:first-child td { background: #1e293b; border-left: 10px solid #ffd700; color: #fff; }
+        
+        /* Barra de Eficiência */
+        .bar-container { background: #374151; border-radius: 10px; height: 20px; width: 150px; display: inline-block; margin-right: 15px; vertical-align: middle; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--success); transition: width 0.5s ease-in-out; }
         .success-text { color: var(--success); font-weight: bold; }
         .badge-meta { background: #064e3b; color: #6ee7b7; padding: 6px 15px; border-radius: 8px; font-weight: bold; border: 1px solid #059669; }
     </style>
@@ -26,8 +36,8 @@
 <body>
 
     <div class="header">
-        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA - AILOG PRO</h1>
-        <div id="relogio" style="font-size: 1.3rem; color: #9ca3af;"></div>
+        <h1 style="margin:0; font-size: 2.2rem; letter-spacing: 1px;">RANKING DE RECOLHA - AILOG PRO</h1>
+        <div id="relogio" style="font-size: 1.3rem; color: #9ca3af; font-weight: bold;"></div>
     </div>
 
     <div class="summary-container">
@@ -36,7 +46,7 @@
             <div id="total-geral-postos" class="stat-value">--</div>
         </div>
         <div class="stat-box">
-            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Postos com Meta > 90%</h2>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Metas Alcançadas (>90%)</h2>
             <div id="total-meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
     </div>
@@ -46,26 +56,32 @@
             <thead>
                 <tr>
                     <th>Analista</th>
-                    <th>Postos</th>
-                    <th>Meta Batida (>90%)</th>
+                    <th>Qtd Postos</th>
+                    <th>Postos na Meta</th>
                     <th>Total Recolhido</th>
-                    <th>Eficiência</th>
+                    <th>Eficiência Geral</th>
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5" style="text-align:center">Conectando à base de dados segura...</td></tr>
+                <tr><td colspan="5" style="text-align:center; padding: 50px;">Buscando dados em tempo real...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        // Link novo que você enviou
-        const urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv';
-        
-        // Uso do Proxy para derrubar o erro de conexão (CORS)
-        const urlGoogleSheets = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(urlOriginal) + '&t=' + new Date().getTime();
+        /**
+         * ATENÇÃO THIAGO:
+         * No lugar do link abaixo, coloque o URL que o Google Apps Script gerou
+         * após você clicar em "Implantar" -> "Nova Implantação".
+         */
+        const urlGoogleSheets = 'https://script.google.com/macros/s/AKfycby4CIKmPsbAe1bX8UN6TrAyBs1ieELCoGxyv7Y72ZeJJW1YUUc8Tmr1HbC7KEXTirunsw/exec';
 
         function carregarDados() {
+            if (urlGoogleSheets.includes('COLE_AQUI')) {
+                document.getElementById('corpo-tabela').innerHTML = "<tr><td colspan='5' style='text-align:center; color: orange;'>Erro: Você esqueceu de colocar o link do Apps Script no código HTML.</td></tr>";
+                return;
+            }
+
             Papa.parse(urlGoogleSheets, {
                 download: true,
                 header: true,
@@ -74,16 +90,11 @@
                     if (results.data && results.data.length > 0) {
                         processarDados(results.data);
                     } else {
-                        document.getElementById('corpo-tabela').innerHTML = "Planilha lida, mas sem dados.";
+                        document.getElementById('corpo-tabela').innerHTML = "<tr><td colspan='5' style='text-align:center'>Planilha conectada, mas não há dados para exibir.</td></tr>";
                     }
                 },
                 error: function(err) {
-                    // Tenta conexão direta caso o proxy falhe
-                    Papa.parse(urlOriginal, {
-                        download: true,
-                        header: true,
-                        complete: function(res) { processarDados(res.data); }
-                    });
+                    document.getElementById('corpo-tabela').innerHTML = "<tr><td colspan='5' style='text-align:center; color: red;'>Erro de Conexão. Verifique a implantação do Apps Script.</td></tr>";
                 }
             });
         }
@@ -101,13 +112,12 @@
 
             lista.forEach(row => {
                 const chaves = Object.keys(row);
-                // Busca as colunas ignorando aspas extras ou espaços que o CSV possa trazer
-                const colUsuario = chaves.find(k => k.replace(/"/g, '').trim() === "USUARIO RESPONSAVEL");
-                const colRec = chaves.find(k => k.replace(/"/g, '').trim() === "VALOR RECOLHIDO");
-                const colTot = chaves.find(k => k.replace(/"/g, '').trim() === "VALOR A RECOLHER");
+                const colUsuario = chaves.find(k => k.trim() === "USUARIO RESPONSAVEL");
+                const colRec = chaves.find(k => k.trim() === "VALOR RECOLHIDO");
+                const colTot = chaves.find(k => k.trim() === "VALOR A RECOLHER");
 
                 if (colUsuario && row[colUsuario]) {
-                    const nome = row[colUsuario].toString().replace(/"/g, '').trim();
+                    const nome = row[colUsuario].toString().trim();
                     const vlrRec = limparMoeda(row[colRec]);
                     const vlrTot = limparMoeda(row[colTot]);
 
@@ -139,10 +149,6 @@
 
         function renderizarTabela(ranking, totalPostos, totalMeta) {
             let html = "";
-            if (ranking.length === 0) {
-                html = "<tr><td colspan='5' style='text-align:center'>Nenhum analista encontrado. Verifique os cabeçalhos da planilha.</td></tr>";
-            }
-
             ranking.forEach(a => {
                 html += `<tr>
                     <td><b>${a.nome}</b></td>
@@ -167,14 +173,23 @@
         function iniciarScrollInfinito() {
             const container = document.getElementById('scroll-container');
             if (container.scrollHeight <= container.offsetHeight) return;
+            
             let scrollPos = 0;
-            let speed = 0.7;
+            let speed = 0.7; 
+            
             function loop() {
                 scrollPos += speed;
                 container.scrollTop = scrollPos;
+                
                 if (scrollPos >= (container.scrollHeight - container.offsetHeight)) {
-                    setTimeout(() => { scrollPos = 0; container.scrollTop = 0; setTimeout(() => { requestAnimationFrame(loop); }, 2000); }, 5000);
-                } else { requestAnimationFrame(loop); }
+                    setTimeout(() => { 
+                        scrollPos = 0; 
+                        container.scrollTop = 0; 
+                        setTimeout(() => { requestAnimationFrame(loop); }, 2000); 
+                    }, 5000);
+                } else {
+                    requestAnimationFrame(loop);
+                }
             }
             requestAnimationFrame(loop);
         }
