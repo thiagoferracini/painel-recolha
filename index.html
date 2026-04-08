@@ -3,38 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="300"> 
-    <title>RANKING AILOG</title>
+    <title>RANKING DE RECOLHA - AILOG PRO</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --text: #f3f4f6; }
-        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow: hidden; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent); height: 80px; box-sizing: border-box; }
-        .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 20px 30px; height: 160px; box-sizing: border-box; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 30px; background: var(--card); border-bottom: 3px solid var(--accent); height: 70px; box-sizing: border-box; }
+        .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 20px 30px; height: 150px; box-sizing: border-box; }
         .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #1f2937; }
         .stat-value { font-size: 3.5rem; font-weight: 800; color: var(--accent); line-height: 1; }
-        #scroll-container { height: calc(100vh - 240px); overflow-y: hidden; padding: 0 30px 100px 30px; position: relative; }
-        table { width: 100%; border-collapse: collapse; font-size: 1.6rem; }
-        th { padding: 20px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1.1rem; }
-        td { padding: 22px 20px; border-bottom: 1px solid #1f2937; background: var(--card); }
-        tr:first-child td { background: #1e293b; border-left: 10px solid #ffd700; }
-        .bar-container { background: #374151; border-radius: 10px; height: 18px; width: 150px; display: inline-block; margin-right: 15px; vertical-align: middle; overflow: hidden; }
-        .bar-fill { height: 100%; background: var(--success); }
+        #scroll-container { height: calc(100vh - 220px); overflow-y: hidden; padding: 0 30px 100px 30px; position: relative; }
+        table { width: 100%; border-collapse: collapse; font-size: 1.5rem; }
+        th { padding: 15px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1rem; text-transform: uppercase; }
+        td { padding: 18px 15px; border-bottom: 1px solid #1f2937; background: var(--card); }
+        tr:first-child td { background: #1e293b; border-left: 8px solid #ffd700; }
+        .bar-container { background: #374151; border-radius: 10px; height: 18px; width: 120px; display: inline-block; margin-right: 12px; vertical-align: middle; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--success); transition: width 1s; }
+        .badge-meta { background: #064e3b; color: #6ee7b7; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA - AILOG</h1>
-        <div id="relogio" style="font-size: 1.3rem; color: #9ca3af;"></div>
+        <h1 style="margin:0; font-size: 1.8rem;">RANKING DE RECOLHA - AILOG OPERAÇÃO</h1>
+        <div id="relogio" style="font-size: 1.2rem; color: #9ca3af;"></div>
     </div>
 
     <div class="summary-container">
         <div class="stat-box">
-            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem;">TOTAL DE POSTOS</h2>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1rem;">TOTAL DE POSTOS</h2>
             <div id="total-geral-postos" class="stat-value">--</div>
         </div>
         <div class="stat-box">
-            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem;">METAS > 90%</h2>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1rem;">METAS > 90%</h2>
             <div id="total-meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
     </div>
@@ -51,20 +52,17 @@
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5" style="text-align:center; padding: 40px;">Sincronizando com a base de dados...</td></tr>
+                <tr><td colspan="5" style="text-align:center; padding-top: 50px;">Carregando dados diretamente da planilha...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        // --- USANDO O LINK DE PUBLICACAO DIRETO COM PROXY DE ALTA DISPONIBILIDADE ---
-        const urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv';
-        
-        // Proxy alternativo (AllOrigins) para evitar erros de conexão
-        const urlFinal = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(urlOriginal) + '&t=' + new Date().getTime();
+        // LINK DIRETO DA PLANILHA (PUBLICADA COMO CSV)
+        const urlPlanilha = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv';
 
         function carregarDados() {
-            Papa.parse(urlFinal, {
+            Papa.parse(urlPlanilha, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
@@ -72,18 +70,19 @@
                     if (results.data && results.data.length > 0) {
                         processarDados(results.data);
                     } else {
-                        document.getElementById('corpo-tabela').innerHTML = "Planilha vazia ou sem dados válidos.";
+                        document.getElementById('corpo-tabela').innerHTML = "Planilha vazia ou link incorreto.";
                     }
                 },
                 error: function(err) {
-                    document.getElementById('corpo-tabela').innerHTML = "Erro ao conectar. Verifique o compartilhamento da planilha.";
+                    document.getElementById('corpo-tabela').innerHTML = "Erro de conexão. Verifique se a planilha está 'Publicada na Web'.";
                 }
             });
         }
 
         function processarDados(lista) {
             let analistasObj = {};
-            let tPostos = 0, tMeta = 0;
+            let tPostos = 0;
+            let tMeta = 0;
 
             const limparMoeda = (v) => {
                 if (!v) return 0;
@@ -93,7 +92,7 @@
 
             lista.forEach(row => {
                 const keys = Object.keys(row);
-                // Busca as colunas ignorando espaços ou aspas
+                // Busca inteligente de colunas (ignora espaços e aspas extras)
                 const colU = keys.find(k => k.trim().includes("USUARIO RESPONSAVEL"));
                 const colR = keys.find(k => k.trim().includes("VALOR RECOLHIDO"));
                 const colT = keys.find(k => k.trim().includes("VALOR A RECOLHER"));
@@ -109,7 +108,9 @@
                         let bateu = ef >= 90 ? 1 : 0;
                         if (bateu) tMeta++;
 
-                        if (!analistasObj[nome]) analistasObj[nome] = {nome, postos:0, meta90:0, rec:0, tot:0};
+                        if (!analistasObj[nome]) {
+                            analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, rec: 0, tot: 0 };
+                        }
                         analistasObj[nome].postos++;
                         analistasObj[nome].meta90 += bateu;
                         analistasObj[nome].rec += vRec;
@@ -132,14 +133,15 @@
                 html += `<tr>
                     <td><b>${a.nome}</b></td>
                     <td>${a.postos}</td>
-                    <td>${a.meta90} Postos</td>
-                    <td style="color:#10b981">R$ ${a.rec.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+                    <td><span class="badge-meta">${a.meta90} Postos</span></td>
+                    <td style="color:var(--success)">R$ ${a.rec.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                     <td>
-                        <div class="bar-container"><div class="bar-fill" style="width:${Math.min(a.perc, 100)}%"></div></div>
+                        <div class="bar-container"><div class="bar-fill" style="width: ${Math.min(a.perc, 100)}%"></div></div>
                         <b>${a.perc.toFixed(2)}%</b>
                     </td>
                 </tr>`;
             });
+
             document.getElementById('corpo-tabela').innerHTML = html;
             document.getElementById('total-geral-postos').innerText = tp;
             document.getElementById('total-meta-90').innerText = tm;
@@ -155,7 +157,11 @@
                 pos += 0.7;
                 container.scrollTop = pos;
                 if (pos >= (container.scrollHeight - container.offsetHeight)) {
-                    setTimeout(() => { pos = 0; container.scrollTop = 0; setTimeout(() => requestAnimationFrame(loop), 2000); }, 5000);
+                    setTimeout(() => { 
+                        pos = 0; 
+                        container.scrollTop = 0; 
+                        setTimeout(() => requestAnimationFrame(loop), 2000); 
+                    }, 5000);
                 } else { requestAnimationFrame(loop); }
             }
             requestAnimationFrame(loop);
