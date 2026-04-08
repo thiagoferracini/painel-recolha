@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="300"> 
-    <title>Ranking de Recolha - Google Sheets</title>
+    <title>Ranking de Recolha - Ailog PRO</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --text: #f3f4f6; }
@@ -26,7 +26,7 @@
 <body>
 
     <div class="header">
-        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA EM TEMPO REAL</h1>
+        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA - AILOG PRO</h1>
         <div id="relogio" style="font-size: 1.3rem; color: #9ca3af;"></div>
     </div>
 
@@ -35,7 +35,7 @@
             <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Total de Postos</h2>
             <div id="total-geral-postos" class="stat-value">--</div>
         </div>
-        <div class="stat-box">
+        <div id="caixa-meta" class="stat-box">
             <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Postos com Meta > 90%</h2>
             <div id="total-meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
@@ -53,76 +53,99 @@
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5" style="text-align:center">Conectando ao Google Sheets...</td></tr>
+                <tr><td colspan="5" style="text-align:center">Sincronizando com a base de dados...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        // COLE O SEU LINK CSV DO GOOGLE SHEETS ABAIXO:
-        const urlGoogleSheets = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?gid=1029395673&single=true&output=csv' + '&cachebuster=' + new Date().getTime();
+        // URL da sua planilha publicada (Adicionado Cache Buster para forçar atualização)
+        const urlGoogleSheets = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?gid=1029395673&single=true&output=csv' + new Date().getTime();
 
         function carregarDados() {
             Papa.parse(urlGoogleSheets, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
+                delimiter: "", // Auto-detecta , ou ;
                 complete: function(results) {
                     processarDados(results.data);
                 },
                 error: function(err) {
-                    document.getElementById('corpo-tabela').innerHTML = "Erro ao conectar com a planilha pública.";
+                    document.getElementById('corpo-tabela').innerHTML = "Erro de conexão. Verifique o link da planilha.";
                 }
             });
         }
 
         function processarDados(lista) {
+            if (!lista || lista.length === 0) return;
+
             let analistasObj = {};
-            let totalPostosGeral = lista.length;
+            let totalPostosValidos = 0;
             let totalMeta90Geral = 0;
 
+            // Mapeia os nomes das colunas limpando espaços extras
+            const headersOriginal = Object.keys(lista[0]);
+            const colUsuario = headersOriginal.find(h => h.trim() === "USUARIO RESPONSAVEL");
+            const colRecolhido = headersOriginal.find(h => h.trim() === "VALOR RECOLHIDO");
+            const colTotal = headersOriginal.find(h => h.trim() === "VALOR A RECOLHER");
+
             lista.forEach(row => {
-                // Remove espaços e garante que os nomes das colunas batam exatamente com o CSV
-                const nome = (row['USUARIO RESPONSAVEL'] || 'SEM ANALISTA').trim();
-                const vlrRec = parseFloat((row['VALOR RECOLHIDO'] || '0').replace(/\./g, '').replace(',', '.'));
-                const vlrTot = parseFloat((row['VALOR A RECOLHER'] || '0').replace(/\./g, '').replace(',', '.'));
+                const nome = (row[colUsuario] || 'SEM ANALISTA').trim();
                 
-                let efIndividual = vlrTot > 0 ? (vlrRec / vlrTot) * 100 : 0;
-                let bateuMeta = efIndividual >= 90 ? 1 : 0;
-                if (bateuMeta) totalMeta90Geral++;
+                // Conversão robusta de valores (Padrão BR: 1.250,50 -> 1250.50)
+                const limparMoeda = (valor) => {
+                    if (!valor) return 0;
+                    return parseFloat(valor.toString().replace(/\./g, '').replace(',', '.')) || 0;
+                };
 
-                if (!analistasObj[nome]) {
-                    analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
+                const vlrRec = limparMoeda(row[colRecolhido]);
+                const vlrTot = limparMoeda(row[colTotal]);
+
+                if (vlrTot > 0) {
+                    totalPostosValidos++;
+                    let efIndividual = (vlrRec / vlrTot) * 100;
+                    let bateuMeta = efIndividual >= 90 ? 1 : 0;
+                    if (bateuMeta) totalMeta90Geral++;
+
+                    if (!analistasObj[nome]) {
+                        analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
+                    }
+
+                    analistasObj[nome].postos += 1;
+                    analistasObj[nome].meta90 += bateuMeta;
+                    analistasObj[nome].recolhido += vlrRec;
+                    analistasObj[nome].total += vlrTot;
                 }
-
-                analistasObj[nome].postos += 1;
-                analistasObj[nome].meta90 += bateuMeta;
-                analistasObj[nome].recolhido += vlrRec;
-                analistasObj[nome].total += vlrTot;
             });
 
+            // Converte para Array e ordena por eficiência
             let ranking = Object.values(analistasObj).map(a => {
-                a.eficiencia = a.total > 0 ? (a.recolhido / a.total) * 100 : 0;
+                a.eficiencia = (a.recolhido / a.total) * 100;
                 return a;
             }).sort((a, b) => b.eficiencia - a.eficiencia);
 
+            renderizarInterface(ranking, totalPostosValidos, totalMeta90Geral);
+        }
+
+        function renderizarInterface(ranking, totalPostos, totalMeta) {
             let html = "";
             ranking.forEach(a => {
                 html += `<tr>
                     <td><b>${a.nome}</b></td>
                     <td>${a.postos}</td>
                     <td><span class="badge-meta">${a.meta90} Postos</span></td>
-                    <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td>
-                        <div class="bar-container"><div class="bar-fill" style="width: ${a.eficiencia}%"></div></div>
-                        <b>${a.eficiencia.toFixed(1)}%</b>
+                        <div class="bar-container"><div class="bar-fill" style="width: ${Math.min(a.eficiencia, 100)}%"></div></div>
+                        <b>${a.eficiencia.toFixed(2)}%</b>
                     </td>
                 </tr>`;
             });
 
             document.getElementById('corpo-tabela').innerHTML = html;
-            document.getElementById('total-geral-postos').innerText = totalPostosGeral;
-            document.getElementById('total-meta-90').innerText = totalMeta90Geral;
+            document.getElementById('total-geral-postos').innerText = totalPostos;
+            document.getElementById('total-meta-90').innerText = totalMeta;
             document.getElementById('relogio').innerText = new Date().toLocaleString('pt-BR');
 
             iniciarScrollInfinito();
@@ -131,14 +154,24 @@
         function iniciarScrollInfinito() {
             const container = document.getElementById('scroll-container');
             if (container.scrollHeight <= container.offsetHeight) return;
+            
             let scrollPos = 0;
-            let speed = 0.8; 
+            let speed = 0.7; 
+            
             function loop() {
                 scrollPos += speed;
                 container.scrollTop = scrollPos;
+                
                 if (scrollPos >= (container.scrollHeight - container.offsetHeight)) {
-                    setTimeout(() => { scrollPos = 0; container.scrollTop = 0; setTimeout(() => { requestAnimationFrame(loop); }, 2000); }, 5000);
-                } else { requestAnimationFrame(loop); }
+                    // Pausa no final antes de resetar
+                    setTimeout(() => { 
+                        scrollPos = 0; 
+                        container.scrollTop = 0; 
+                        setTimeout(() => { requestAnimationFrame(loop); }, 2000); 
+                    }, 5000);
+                } else {
+                    requestAnimationFrame(loop);
+                }
             }
             requestAnimationFrame(loop);
         }
