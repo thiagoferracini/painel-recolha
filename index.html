@@ -53,15 +53,17 @@
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5" style="text-align:center">Sincronizando dados da operação...</td></tr>
+                <tr><td colspan="5" style="text-align:center">Conectando à base de dados segura...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        // Configuração do Link Direto via Google Visualization API (Evita Erro de CORS)
-        const spreadsheetId = '1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX';
-        const urlGoogleSheets = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&t=1`;
+        // Link novo que você enviou
+        const urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv';
+        
+        // Uso do Proxy para derrubar o erro de conexão (CORS)
+        const urlGoogleSheets = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(urlOriginal) + '&t=' + new Date().getTime();
 
         function carregarDados() {
             Papa.parse(urlGoogleSheets, {
@@ -72,11 +74,16 @@
                     if (results.data && results.data.length > 0) {
                         processarDados(results.data);
                     } else {
-                        document.getElementById('corpo-tabela').innerHTML = "Nenhum dado encontrado na planilha.";
+                        document.getElementById('corpo-tabela').innerHTML = "Planilha lida, mas sem dados.";
                     }
                 },
                 error: function(err) {
-                    document.getElementById('corpo-tabela').innerHTML = "Erro ao conectar. Verifique se a planilha está aberta para 'Quem tem o link'.";
+                    // Tenta conexão direta caso o proxy falhe
+                    Papa.parse(urlOriginal, {
+                        download: true,
+                        header: true,
+                        complete: function(res) { processarDados(res.data); }
+                    });
                 }
             });
         }
@@ -88,36 +95,37 @@
 
             const limparMoeda = (valor) => {
                 if (!valor) return 0;
-                // Trata R$, pontos de milhar e vírgula decimal
                 let n = valor.toString().replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
                 return parseFloat(n) || 0;
             };
 
             lista.forEach(row => {
-                // Remove aspas e espaços dos nomes das colunas que o Google envia
                 const chaves = Object.keys(row);
+                // Busca as colunas ignorando aspas extras ou espaços que o CSV possa trazer
                 const colUsuario = chaves.find(k => k.replace(/"/g, '').trim() === "USUARIO RESPONSAVEL");
-                const colRecolhido = chaves.find(k => k.replace(/"/g, '').trim() === "VALOR RECOLHIDO");
-                const colTotal = chaves.find(k => k.replace(/"/g, '').trim() === "VALOR A RECOLHER");
+                const colRec = chaves.find(k => k.replace(/"/g, '').trim() === "VALOR RECOLHIDO");
+                const colTot = chaves.find(k => k.replace(/"/g, '').trim() === "VALOR A RECOLHER");
 
-                const nome = (row[colUsuario] || 'SEM ANALISTA').toString().replace(/"/g, '').trim();
-                const vlrRec = limparMoeda(row[colRecolhido]);
-                const vlrTot = limparMoeda(row[colTotal]);
+                if (colUsuario && row[colUsuario]) {
+                    const nome = row[colUsuario].toString().replace(/"/g, '').trim();
+                    const vlrRec = limparMoeda(row[colRec]);
+                    const vlrTot = limparMoeda(row[colTot]);
 
-                if (vlrTot > 0) {
-                    totalPostosValidos++;
-                    let efIndividual = (vlrRec / vlrTot) * 100;
-                    let bateuMeta = efIndividual >= 90 ? 1 : 0;
-                    if (bateuMeta) totalMeta90Geral++;
+                    if (vlrTot > 0) {
+                        totalPostosValidos++;
+                        let efIndividual = (vlrRec / vlrTot) * 100;
+                        let bateuMeta = efIndividual >= 90 ? 1 : 0;
+                        if (bateuMeta) totalMeta90Geral++;
 
-                    if (!analistasObj[nome]) {
-                        analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
+                        if (!analistasObj[nome]) {
+                            analistasObj[nome] = { nome: nome, postos: 0, meta90: 0, recolhido: 0, total: 0 };
+                        }
+
+                        analistasObj[nome].postos += 1;
+                        analistasObj[nome].meta90 += bateuMeta;
+                        analistasObj[nome].recolhido += vlrRec;
+                        analistasObj[nome].total += vlrTot;
                     }
-
-                    analistasObj[nome].postos += 1;
-                    analistasObj[nome].meta90 += bateuMeta;
-                    analistasObj[nome].recolhido += vlrRec;
-                    analistasObj[nome].total += vlrTot;
                 }
             });
 
@@ -131,6 +139,10 @@
 
         function renderizarTabela(ranking, totalPostos, totalMeta) {
             let html = "";
+            if (ranking.length === 0) {
+                html = "<tr><td colspan='5' style='text-align:center'>Nenhum analista encontrado. Verifique os cabeçalhos da planilha.</td></tr>";
+            }
+
             ranking.forEach(a => {
                 html += `<tr>
                     <td><b>${a.nome}</b></td>
@@ -155,23 +167,14 @@
         function iniciarScrollInfinito() {
             const container = document.getElementById('scroll-container');
             if (container.scrollHeight <= container.offsetHeight) return;
-            
             let scrollPos = 0;
-            let speed = 0.7; 
-            
+            let speed = 0.7;
             function loop() {
                 scrollPos += speed;
                 container.scrollTop = scrollPos;
-                
                 if (scrollPos >= (container.scrollHeight - container.offsetHeight)) {
-                    setTimeout(() => { 
-                        scrollPos = 0; 
-                        container.scrollTop = 0; 
-                        setTimeout(() => { requestAnimationFrame(loop); }, 2000); 
-                    }, 5000);
-                } else {
-                    requestAnimationFrame(loop);
-                }
+                    setTimeout(() => { scrollPos = 0; container.scrollTop = 0; setTimeout(() => { requestAnimationFrame(loop); }, 2000); }, 5000);
+                } else { requestAnimationFrame(loop); }
             }
             requestAnimationFrame(loop);
         }
