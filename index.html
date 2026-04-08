@@ -60,7 +60,7 @@
 
     <script>
         // COLE O SEU LINK CSV DO GOOGLE SHEETS ABAIXO:
-        const urlGoogleSheets = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv';
+        const urlGoogleSheets = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv' + '&cachebuster=' + new Date().getTime();
 
         function carregarDados() {
             Papa.parse(urlGoogleSheets, {
