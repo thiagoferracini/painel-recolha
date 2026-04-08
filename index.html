@@ -35,7 +35,7 @@
             <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Total de Postos</h2>
             <div id="total-geral-postos" class="stat-value">--</div>
         </div>
-        <div id="caixa-meta" class="stat-box">
+        <div class="stat-box">
             <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem; text-transform: uppercase;">Postos com Meta > 90%</h2>
             <div id="total-meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
@@ -53,54 +53,57 @@
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5" style="text-align:center">Sincronizando com a base de dados...</td></tr>
+                <tr><td colspan="5" style="text-align:center">Conectando à base de dados segura...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        // URL da sua planilha publicada (Adicionado Cache Buster para forçar atualização)
-        const urlGoogleSheets = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?gid=1029395673&single=true&output=csv' + new Date().getTime();
+        // Link da sua planilha com Proxy para evitar erro de conexão (CORS)
+        const urlBruta = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv';
+        const urlGoogleSheets = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(urlBruta) + '&t=' + new Date().getTime();
 
         function carregarDados() {
             Papa.parse(urlGoogleSheets, {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
-                delimiter: "", // Auto-detecta , ou ;
+                delimiter: "", // Detecta automaticamente se é vírgula ou ponto e vírgula
                 complete: function(results) {
-                    processarDados(results.data);
+                    if (results.data && results.data.length > 0) {
+                        processarDados(results.data);
+                    } else {
+                        document.getElementById('corpo-tabela').innerHTML = "Planilha carregada, mas sem dados.";
+                    }
                 },
                 error: function(err) {
-                    document.getElementById('corpo-tabela').innerHTML = "Erro de conexão. Verifique o link da planilha.";
+                    document.getElementById('corpo-tabela').innerHTML = "Erro de rede ao acessar os dados.";
                 }
             });
         }
 
         function processarDados(lista) {
-            if (!lista || lista.length === 0) return;
-
             let analistasObj = {};
             let totalPostosValidos = 0;
             let totalMeta90Geral = 0;
 
-            // Mapeia os nomes das colunas limpando espaços extras
-            const headersOriginal = Object.keys(lista[0]);
-            const colUsuario = headersOriginal.find(h => h.trim() === "USUARIO RESPONSAVEL");
-            const colRecolhido = headersOriginal.find(h => h.trim() === "VALOR RECOLHIDO");
-            const colTotal = headersOriginal.find(h => h.trim() === "VALOR A RECOLHER");
+            const limparMoeda = (valor) => {
+                if (!valor) return 0;
+                // Remove pontos de milhar e troca vírgula por ponto decimal
+                let n = valor.toString().replace(/\./g, '').replace(',', '.');
+                return parseFloat(n) || 0;
+            };
 
             lista.forEach(row => {
-                const nome = (row[colUsuario] || 'SEM ANALISTA').trim();
-                
-                // Conversão robusta de valores (Padrão BR: 1.250,50 -> 1250.50)
-                const limparMoeda = (valor) => {
-                    if (!valor) return 0;
-                    return parseFloat(valor.toString().replace(/\./g, '').replace(',', '.')) || 0;
-                };
+                // Identifica as colunas limpando espaços extras nos nomes
+                const chaves = Object.keys(row);
+                const colUsuario = chaves.find(k => k.trim() === "USUARIO RESPONSAVEL");
+                const colRec = chaves.find(k => k.trim() === "VALOR RECOLHIDO");
+                const colTot = chaves.find(k => k.trim() === "VALOR A RECOLHER");
 
-                const vlrRec = limparMoeda(row[colRecolhido]);
-                const vlrTot = limparMoeda(row[colTotal]);
+                const nome = (row[colUsuario] || 'SEM ANALISTA').trim();
+                const vlrRec = limparMoeda(row[colRec]);
+                const vlrTot = limparMoeda(row[colTot]);
 
                 if (vlrTot > 0) {
                     totalPostosValidos++;
@@ -119,23 +122,22 @@
                 }
             });
 
-            // Converte para Array e ordena por eficiência
             let ranking = Object.values(analistasObj).map(a => {
                 a.eficiencia = (a.recolhido / a.total) * 100;
                 return a;
             }).sort((a, b) => b.eficiencia - a.eficiencia);
 
-            renderizarInterface(ranking, totalPostosValidos, totalMeta90Geral);
+            renderizarTabela(ranking, totalPostosValidos, totalMeta90Geral);
         }
 
-        function renderizarInterface(ranking, totalPostos, totalMeta) {
+        function renderizarTabela(ranking, totalPostos, totalMeta) {
             let html = "";
             ranking.forEach(a => {
                 html += `<tr>
                     <td><b>${a.nome}</b></td>
                     <td>${a.postos}</td>
                     <td><span class="badge-meta">${a.meta90} Postos</span></td>
-                    <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td class="success-text">R$ ${a.recolhido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                     <td>
                         <div class="bar-container"><div class="bar-fill" style="width: ${Math.min(a.eficiencia, 100)}%"></div></div>
                         <b>${a.eficiencia.toFixed(2)}%</b>
@@ -154,24 +156,14 @@
         function iniciarScrollInfinito() {
             const container = document.getElementById('scroll-container');
             if (container.scrollHeight <= container.offsetHeight) return;
-            
             let scrollPos = 0;
-            let speed = 0.7; 
-            
+            let speed = 0.7;
             function loop() {
                 scrollPos += speed;
                 container.scrollTop = scrollPos;
-                
                 if (scrollPos >= (container.scrollHeight - container.offsetHeight)) {
-                    // Pausa no final antes de resetar
-                    setTimeout(() => { 
-                        scrollPos = 0; 
-                        container.scrollTop = 0; 
-                        setTimeout(() => { requestAnimationFrame(loop); }, 2000); 
-                    }, 5000);
-                } else {
-                    requestAnimationFrame(loop);
-                }
+                    setTimeout(() => { scrollPos = 0; container.scrollTop = 0; setTimeout(() => { requestAnimationFrame(loop); }, 2000); }, 5000);
+                } else { requestAnimationFrame(loop); }
             }
             requestAnimationFrame(loop);
         }
