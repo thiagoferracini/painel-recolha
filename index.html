@@ -2,38 +2,39 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="120"> 
+    <meta http-equiv="refresh" content="300"> 
     <title>RANKING AILOG</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { --bg: #050a14; --card: #111827; --accent: #3b82f6; --success: #10b981; --text: #f3f4f6; }
-        body { background-color: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 0; overflow: hidden; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent); }
-        .summary-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px 30px; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: var(--card); border-bottom: 3px solid var(--accent); height: 80px; box-sizing: border-box; }
+        .summary-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 20px 30px; height: 160px; box-sizing: border-box; }
         .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #1f2937; }
-        .stat-value { font-size: 3.5rem; font-weight: bold; color: var(--accent); }
-        #scroll-container { height: calc(100vh - 250px); overflow-y: hidden; padding: 0 30px; }
+        .stat-value { font-size: 3.5rem; font-weight: 800; color: var(--accent); line-height: 1; }
+        #scroll-container { height: calc(100vh - 240px); overflow-y: hidden; padding: 0 30px 100px 30px; position: relative; }
         table { width: 100%; border-collapse: collapse; font-size: 1.6rem; }
-        th { padding: 15px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; }
-        td { padding: 20px 15px; border-bottom: 1px solid #1f2937; background: var(--card); }
-        .bar-container { background: #374151; border-radius: 10px; height: 18px; width: 100px; display: inline-block; margin-right: 10px; overflow: hidden; }
+        th { padding: 20px; text-align: left; background: #1f2937; color: var(--accent); position: sticky; top: 0; z-index: 10; font-size: 1.1rem; }
+        td { padding: 22px 20px; border-bottom: 1px solid #1f2937; background: var(--card); }
+        tr:first-child td { background: #1e293b; border-left: 10px solid #ffd700; }
+        .bar-container { background: #374151; border-radius: 10px; height: 18px; width: 150px; display: inline-block; margin-right: 15px; vertical-align: middle; overflow: hidden; }
         .bar-fill { height: 100%; background: var(--success); }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>RANKING DE RECOLHA - AILOG</h1>
-        <div id="relogio"></div>
+        <h1 style="margin:0; font-size: 2.2rem;">RANKING DE RECOLHA - AILOG</h1>
+        <div id="relogio" style="font-size: 1.3rem; color: #9ca3af;"></div>
     </div>
 
     <div class="summary-container">
         <div class="stat-box">
-            <span>TOTAL DE POSTOS</span>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem;">TOTAL DE POSTOS</h2>
             <div id="total-geral-postos" class="stat-value">--</div>
         </div>
         <div class="stat-box">
-            <span>METAS > 90%</span>
+            <h2 style="margin:0; color:#9ca3af; font-size: 1.1rem;">METAS > 90%</h2>
             <div id="total-meta-90" class="stat-value" style="color: var(--success);">--</div>
         </div>
     </div>
@@ -44,34 +45,38 @@
                 <tr>
                     <th>Analista</th>
                     <th>Postos</th>
-                    <th>Meta</th>
-                    <th>Recolhido</th>
+                    <th>Meta Batida</th>
+                    <th>Total Recolhido</th>
                     <th>Eficiência</th>
                 </tr>
             </thead>
             <tbody id="corpo-tabela">
-                <tr><td colspan="5" style="text-align:center">Conectando...</td></tr>
+                <tr><td colspan="5" style="text-align:center; padding: 40px;">Sincronizando com a base de dados...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        // COLOQUE SEU LINK DO APPS SCRIPT AQUI (QUE TERMINA EM /exec)
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfANg11rfGKv3Igl568mkh3NWvduDRpfBhg-Xl_gss_W3zAl2nzW_G1puVsYgQEv4Lxw/exec';
+        // --- USANDO O LINK DE PUBLICACAO DIRETO COM PROXY DE ALTA DISPONIBILIDADE ---
+        const urlOriginal = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqBvRizKQFB1vl3xe49nTBPu_8TWsAnWoa7LNnKz1tM1XTUXdNlsMlzzVlCeVb8pmrVUIV4beU1CbX/pub?output=csv';
+        
+        // Proxy alternativo (AllOrigins) para evitar erros de conexão
+        const urlFinal = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(urlOriginal) + '&t=' + new Date().getTime();
 
         function carregarDados() {
-            const script = document.createElement('script');
-            // Usamos JSONP para evitar erros de conexão na TV e no PC
-            script.src = `${APPS_SCRIPT_URL}?callback=processarJSONP&t=${new Date().getTime()}`;
-            document.body.appendChild(script);
-        }
-
-        function processarJSONP(data) {
-            Papa.parse(data.csv, {
+            Papa.parse(urlFinal, {
+                download: true,
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    processarDados(results.data);
+                    if (results.data && results.data.length > 0) {
+                        processarDados(results.data);
+                    } else {
+                        document.getElementById('corpo-tabela').innerHTML = "Planilha vazia ou sem dados válidos.";
+                    }
+                },
+                error: function(err) {
+                    document.getElementById('corpo-tabela').innerHTML = "Erro ao conectar. Verifique o compartilhamento da planilha.";
                 }
             });
         }
@@ -80,34 +85,35 @@
             let analistasObj = {};
             let tPostos = 0, tMeta = 0;
 
-            const conv = (v) => {
-                if(!v) return 0;
+            const limparMoeda = (v) => {
+                if (!v) return 0;
                 let n = v.toString().replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
                 return parseFloat(n) || 0;
             };
 
             lista.forEach(row => {
                 const keys = Object.keys(row);
-                const colU = keys.find(k => k.includes("USUARIO"));
-                const colR = keys.find(k => k.includes("RECOLHIDO"));
-                const colT = keys.find(k => k.includes("A RECOLHER"));
+                // Busca as colunas ignorando espaços ou aspas
+                const colU = keys.find(k => k.trim().includes("USUARIO RESPONSAVEL"));
+                const colR = keys.find(k => k.trim().includes("VALOR RECOLHIDO"));
+                const colT = keys.find(k => k.trim().includes("VALOR A RECOLHER"));
 
                 if (colU && row[colU]) {
                     const nome = row[colU].trim();
-                    const vR = conv(row[colR]);
-                    const vT = conv(row[colT]);
+                    const vRec = limparMoeda(row[colR]);
+                    const vTot = limparMoeda(row[colT]);
 
-                    if (vT > 0) {
+                    if (vTot > 0) {
                         tPostos++;
-                        let ef = (vR / vT) * 100;
-                        let b = ef >= 90 ? 1 : 0;
-                        if(b) tMeta++;
+                        let ef = (vRec / vTot) * 100;
+                        let bateu = ef >= 90 ? 1 : 0;
+                        if (bateu) tMeta++;
 
-                        if(!analistasObj[nome]) analistasObj[nome] = {nome, postos:0, meta90:0, rec:0, tot:0};
+                        if (!analistasObj[nome]) analistasObj[nome] = {nome, postos:0, meta90:0, rec:0, tot:0};
                         analistasObj[nome].postos++;
-                        analistasObj[nome].meta90 += b;
-                        analistasObj[nome].rec += vR;
-                        analistasObj[nome].tot += vT;
+                        analistasObj[nome].meta90 += bateu;
+                        analistasObj[nome].rec += vRec;
+                        analistasObj[nome].tot += vTot;
                     }
                 }
             });
@@ -115,19 +121,19 @@
             let ranking = Object.values(analistasObj).map(a => {
                 a.perc = (a.rec / a.tot) * 100;
                 return a;
-            }).sort((a,b) => b.perc - a.perc);
+            }).sort((a, b) => b.perc - a.perc);
 
             renderizar(ranking, tPostos, tMeta);
         }
 
-        function renderizar(dados, tP, tM) {
+        function renderizar(dados, tp, tm) {
             let html = "";
             dados.forEach(a => {
                 html += `<tr>
                     <td><b>${a.nome}</b></td>
                     <td>${a.postos}</td>
                     <td>${a.meta90} Postos</td>
-                    <td>R$ ${a.rec.toLocaleString('pt-BR')}</td>
+                    <td style="color:#10b981">R$ ${a.rec.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
                     <td>
                         <div class="bar-container"><div class="bar-fill" style="width:${Math.min(a.perc, 100)}%"></div></div>
                         <b>${a.perc.toFixed(2)}%</b>
@@ -135,20 +141,21 @@
                 </tr>`;
             });
             document.getElementById('corpo-tabela').innerHTML = html;
-            document.getElementById('total-geral-postos').innerText = tP;
-            document.getElementById('total-meta-90').innerText = tM;
+            document.getElementById('total-geral-postos').innerText = tp;
+            document.getElementById('total-meta-90').innerText = tm;
             document.getElementById('relogio').innerText = new Date().toLocaleString('pt-BR');
             iniciarScroll();
         }
 
         function iniciarScroll() {
-            const c = document.getElementById('scroll-container');
-            let p = 0;
+            const container = document.getElementById('scroll-container');
+            if (container.scrollHeight <= container.offsetHeight) return;
+            let pos = 0;
             function loop() {
-                p += 0.7;
-                c.scrollTop = p;
-                if (p >= (c.scrollHeight - c.offsetHeight)) {
-                    setTimeout(() => { p = 0; c.scrollTop = 0; setTimeout(() => requestAnimationFrame(loop), 2000); }, 4000);
+                pos += 0.7;
+                container.scrollTop = pos;
+                if (pos >= (container.scrollHeight - container.offsetHeight)) {
+                    setTimeout(() => { pos = 0; container.scrollTop = 0; setTimeout(() => requestAnimationFrame(loop), 2000); }, 5000);
                 } else { requestAnimationFrame(loop); }
             }
             requestAnimationFrame(loop);
